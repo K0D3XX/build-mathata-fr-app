@@ -15,7 +15,13 @@ button,input,select { font:inherit; } button { cursor:pointer; } button:focus-vi
 @media (max-width:800px) { .topbar { padding:0 16px; gap:12px; }.mobile-menu { display:grid; place-items:center; }.brand { min-width:0; }.top-nav { display:none; }.top-actions { gap:6px; }.add-button span { display:none; }.add-button { padding:11px; }.layout { display:block; }.sidebar { display:none; position:fixed; inset:72px auto 0 0; z-index:18; width:260px; box-shadow:12px 0 30px rgba(20,30,50,.12); }.menu-visible .sidebar { display:flex; }.main { padding:25px 15px 60px; }.page-heading h1 { font-size:25px; }.page-heading { align-items:center; }.hero-grid { grid-template-columns:1fr; }.welcome-card { padding:22px; }.ring { width:96px; height:96px; }.ring>div { width:74px; height:74px; }.ring b { font-size:18px; }.focus-card { display:none; }.theme-options { grid-template-columns:repeat(2,1fr); }.exam-card,.settings-card { padding:23px; }.exam-stats { gap:20px; justify-content:space-between; }.section-head { margin-top:24px; }.session { gap:10px; }.session-tag { display:none; }.pomodoro { right:15px; bottom:15px; }.toast { width:calc(100% - 30px); justify-content:center; text-align:center; } }
 @media (prefers-color-scheme:dark) { body { background:#111827; } }
 
-/* Overview contrast and polished desktop brand treatment */
+/* Fresh first-run empty states */
+  .empty-state { display:grid; place-items:center; text-align:center; min-height:190px; padding:28px; border:1px dashed color-mix(in srgb,var(--primary) 28%, #cbd5e1); border-radius:18px; background:color-mix(in srgb,var(--soft) 38%, transparent); }
+  .empty-state-icon { display:grid; place-items:center; width:42px; height:42px; margin-bottom:10px; border-radius:14px; color:var(--primary); background:var(--soft); }
+  .empty-state h3 { margin:0 0 5px; font-size:16px; color:var(--ink,#172033); }
+  .empty-state p { max-width:390px; margin:0; color:var(--muted,#657187); font-size:13px; line-height:1.55; }
+
+  /* Overview contrast and polished desktop brand treatment */
 .welcome-card .ring { position:relative; background:conic-gradient(var(--primary) var(--progress),color-mix(in srgb,var(--primary) 18%,#dbe4f0) 0); box-shadow:0 12px 28px color-mix(in srgb,var(--primary) 18%,transparent),0 0 0 1px color-mix(in srgb,var(--primary) 30%,transparent); }
 .welcome-card .ring>div { background:color-mix(in srgb,var(--page-bg) 82%,#ffffff); color:var(--text-strong,#172033); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 18%,transparent); }
 .welcome-card .ring b { display:block; color:var(--text-strong,#172033); font-size:24px; line-height:1; font-weight:850; }
