@@ -6,9 +6,9 @@ export const metadata: Metadata = {
   description: 'A calm, practical study timetable for university life in Botswana.',
   generator: 'v0.app',
   applicationName: 'Mathata FR',
-  manifest: './manifest.webmanifest',
+  manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, title: 'Mathata', statusBarStyle: 'black-translucent' },
-  icons: { icon: './icon.svg', apple: './apple-icon.png' },
+  icons: { icon: '/icon.svg', apple: '/icons/icon-192.png' },
 }
 
 export const viewport: Viewport = {

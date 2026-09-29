@@ -6,6 +6,9 @@ import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Download, FileU
 type Module = { id: string; short: string; name: string; color: string }
 type Block = { id: string; day: number; start: string; end: string; module: string; topic: string; notes?: string; done?: boolean; locked?: boolean }
 type Deadline = { id: string; module: string; title: string; date: string; kind: string }
+type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
+
+const DASH_LOGO = <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 5h8.5C22.85 5 27 9.15 27 16s-4.15 11-10.5 11H8V5Zm7.5 17c3.4 0 5.5-2.15 5.5-6s-2.1-6-5.5-6H14v12h1.5Z" fill="currentColor" /></svg>
 
 const MODULES: Module[] = [
   { id: 'osc', short: 'OSC', name: 'Operating Systems Concepts', color: '#be4d5e' },
@@ -39,8 +42,25 @@ export default function Page() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [menuOpen, setMenuOpen] = useState(false)
   const [now, setNow] = useState(new Date())
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
+  const [installed, setInstalled] = useState(false)
 
   useEffect(() => { try { const saved = JSON.parse(localStorage.getItem('mathata-fr') || '{}'); if (saved.blocks) setBlocks(saved.blocks); if (saved.deadlines) setDeadlines(saved.deadlines); if (saved.theme) setTheme(saved.theme) } catch { setBlocks(DEFAULT_BLOCKS) } }, [])
+  useEffect(() => {
+    const onBeforeInstall = (event: Event) => { event.preventDefault(); setInstallPrompt(event as InstallPromptEvent) }
+    const onInstalled = () => { setInstalled(true); setInstallPrompt(null) }
+    window.addEventListener('beforeinstallprompt', onBeforeInstall)
+    window.addEventListener('appinstalled', onInstalled)
+    setInstalled(window.matchMedia('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone))
+    return () => { window.removeEventListener('beforeinstallprompt', onBeforeInstall); window.removeEventListener('appinstalled', onInstalled) }
+  }, [])
+  const installApp = async () => {
+    if (!installPrompt) { alert('To install Mathata, use your browser menu and choose “Add to Home screen” or “Install Mathata”.'); return }
+    await installPrompt.prompt()
+    const choice = await installPrompt.userChoice
+    if (choice.outcome === 'accepted') setInstalled(true)
+    setInstallPrompt(null)
+  }
   useEffect(() => { localStorage.setItem('mathata-fr', JSON.stringify({ blocks, deadlines, theme })) }, [blocks, deadlines, theme])
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t) }, [])
   useEffect(() => { if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => undefined) }, [])
@@ -55,7 +75,7 @@ export default function Page() {
   const lineTop = now.getHours() >= 7 && now.getHours() <= 22 ? ((now.getHours() - 7) * 64 + now.getMinutes() * 64 / 60) : -100
 
   return <div className={theme === 'dark' ? 'app dark' : 'app'}>
-    <header className="appbar"><div className="brand"><div className="brand-mark">M</div><div><strong>Mathata FR</strong><span>Study timetable</span></div></div><div className="header-actions"><button className="icon-button menu-button" aria-label="Open menu" onClick={() => setMenuOpen(!menuOpen)}><Menu size={20} /></button><button className="icon-button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button><button className="primary-button" onClick={() => setModal(null)}><Plus size={17} /> <span>Add study block</span></button></div></header>
+    <header className="appbar"><div className="brand"><div className="brand-mark" aria-label="Mathata logo">{DASH_LOGO}</div><div><strong>Mathata FR</strong><span>Study timetable</span></div></div><div className="header-actions">{!installed && <button className="install-button" onClick={installApp}><Download size={16} /> <span>Download app</span></button>}<button className="icon-button menu-button" aria-label="Open menu" onClick={() => setMenuOpen(!menuOpen)}><Menu size={20} /></button><button className="icon-button" aria-label="Toggle theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button><button className="primary-button" onClick={() => setModal(null)}><Plus size={17} /> <span>Add study block</span></button></div></header>
     <div className="shell">
       <aside className={menuOpen ? 'sidebar open' : 'sidebar'}><nav><NavItem active={view === 'week'} onClick={() => { setView('week'); setMenuOpen(false) }} icon={<CalendarDays size={18} />} label="Week" /><NavItem active={view === 'day'} onClick={() => { setView('day'); setMenuOpen(false) }} icon={<Clock3 size={18} />} label="Day" /><NavItem active={view === 'deadlines'} onClick={() => { setView('deadlines'); setMenuOpen(false) }} icon={<Target size={18} />} label="Deadlines" /><NavItem active={view === 'modules'} onClick={() => { setView('modules'); setMenuOpen(false) }} icon={<MoreHorizontal size={18} />} label="Modules" /></nav><div className="sidebar-footer"><div className="progress-label"><span>This week</span><strong>{completed}/{blocks.filter(b => !b.locked).length} done</strong></div><div className="progress"><i style={{ width: `${Math.round(completed / Math.max(1, blocks.filter(b => !b.locked).length) * 100)}%` }} /></div><p>Everything is saved on this device.</p></div></aside>
       <main className="main"><section className="welcome"><div><p className="eyebrow">{todayLabel}</p><h1>{view === 'week' ? 'Your week, in focus.' : view === 'day' ? `${DAYS[day]} at a glance.` : view === 'deadlines' ? 'Deadlines' : 'Your modules'}</h1></div><div className="week-controls">{(view === 'week' || view === 'day') && <><button className="small-button" onClick={() => setDay(todayIndex)}>Today</button><button className="icon-button" aria-label="Previous day" onClick={() => setDay((day + 6) % 7)}><ChevronLeft size={17} /></button><button className="icon-button" aria-label="Next day" onClick={() => setDay((day + 1) % 7)}><ChevronRight size={17} /></button></>}</div></section>
