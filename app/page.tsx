@@ -8,6 +8,37 @@ type Block = { id: string; day: number; start: string; end: string; module: stri
 type Deadline = { id: string; module: string; title: string; date: string; kind: string }
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 
+const WALLPAPER_DB = 'mathata-wallpaper'
+const WALLPAPER_STORE = 'assets'
+
+function wallpaperDb() {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(WALLPAPER_DB, 1)
+    request.onupgradeneeded = () => request.result.createObjectStore(WALLPAPER_STORE)
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function saveWallpaper(value: string) {
+  const db = await wallpaperDb()
+  await new Promise<void>((resolve, reject) => { const request = db.transaction(WALLPAPER_STORE, 'readwrite').objectStore(WALLPAPER_STORE).put(value, 'background'); request.onsuccess = () => resolve(); request.onerror = () => reject(request.error) })
+  db.close()
+}
+
+async function loadWallpaper() {
+  const db = await wallpaperDb()
+  const value = await new Promise<string | undefined>((resolve, reject) => { const request = db.transaction(WALLPAPER_STORE, 'readonly').objectStore(WALLPAPER_STORE).get('background'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })
+  db.close()
+  return value
+}
+
+async function removeWallpaper() {
+  const db = await wallpaperDb()
+  await new Promise<void>((resolve, reject) => { const request = db.transaction(WALLPAPER_STORE, 'readwrite').objectStore(WALLPAPER_STORE).delete('background'); request.onsuccess = () => resolve(); request.onerror = () => reject(request.error) })
+  db.close()
+}
+
 const DASH_LOGO = <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 5h8.5C22.85 5 27 9.15 27 16s-4.15 11-10.5 11H8V5Zm7.5 17c3.4 0 5.5-2.15 5.5-6s-2.1-6-5.5-6H14v12h1.5Z" fill="currentColor" /></svg>
 
 const MODULES: Module[] = [
@@ -60,7 +91,7 @@ export default function Page() {
   const toastTimer = useRef<number | null>(null)
   const pomodoroStarted = pomodoroSeconds > 0 || pomodoroRunning
 
-  useEffect(() => { try { const saved = JSON.parse(localStorage.getItem('mathata-fr') || '{}'); if (saved.blocks) setBlocks(saved.blocks); if (saved.deadlines) setDeadlines(saved.deadlines); if (saved.theme) setTheme(saved.theme); if (saved.backgroundImage) setBackgroundImage(saved.backgroundImage) } catch { setBlocks(DEFAULT_BLOCKS) } }, [])
+  useEffect(() => { try { const saved = JSON.parse(localStorage.getItem('mathata-fr') || '{}'); if (saved.blocks) setBlocks(saved.blocks); if (saved.deadlines) setDeadlines(saved.deadlines); if (saved.theme) setTheme(saved.theme); loadWallpaper().then(value => { if (value) setBackgroundImage(value) }).catch(() => undefined) } catch { setBlocks(DEFAULT_BLOCKS) } }, [])
   useEffect(() => {
     const onBeforeInstall = (event: Event) => { event.preventDefault(); setInstallPrompt(event as InstallPromptEvent) }
     const onInstalled = () => { setInstalled(true); setInstallPrompt(null) }
@@ -76,15 +107,16 @@ export default function Page() {
     if (choice.outcome === 'accepted') setInstalled(true)
     setInstallPrompt(null)
   }
-  useEffect(() => { try { localStorage.setItem('mathata-fr', JSON.stringify({ blocks, deadlines, theme, backgroundImage, transparency })) } catch { setToast('Your wallpaper is active for this session; it was too large to save on this device.') } }, [blocks, deadlines, theme, backgroundImage, transparency])
+  useEffect(() => { try { localStorage.setItem('mathata-fr', JSON.stringify({ blocks, deadlines, theme, transparency })) } catch {} }, [blocks, deadlines, theme, transparency])
+  useEffect(() => { if (!backgroundImage) return; saveWallpaper(backgroundImage).catch(() => notify('Wallpaper applied, but this browser blocked device storage.')) }, [backgroundImage])
   const notify = (message: string) => { setToast(message); if (toastTimer.current) window.clearTimeout(toastTimer.current); toastTimer.current = window.setTimeout(() => setToast(''), 4200) }
   useEffect(() => { try { const saved = JSON.parse(localStorage.getItem('mathata-fr') || '{}'); if (typeof saved.transparency === 'number') setTransparency(saved.transparency) } catch {} }, [])
   useEffect(() => { if (!pomodoroRunning) return; const timer = window.setInterval(() => setPomodoroSeconds(value => { if (value <= 1) { setPomodoroRunning(false); return 0 } return value - 1 }), 1000); return () => window.clearInterval(timer) }, [pomodoroRunning])
   const startPomodoro = (hours = pomodoroHours) => { setPomodoroHours(hours); setPomodoroSeconds(hours * 60 * 60); setPomodoroRunning(true) }
   const pausePomodoro = () => { if (pomodoroRunning) notify(pomodoroSeconds > 15 * 60 ? 'Bruhh ur kidding right' : 'Come on, you\'re almost there bud'); setPomodoroRunning(false) }
   const resetPomodoro = () => { setPomodoroRunning(false); setPomodoroSeconds(0) }
-  const handleBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file || !file.type.startsWith('image/')) { if (file) notify('Please choose a PNG, JPG, or WEBP image.'); return } if (file.size > 8 * 1024 * 1024) { notify('That image is too large. Choose one under 8 MB.'); return } try { const reader = new FileReader(); reader.onload = () => setBackgroundImage(String(reader.result)); reader.onerror = () => notify('That wallpaper could not be loaded. Try another image.'); reader.readAsDataURL(file) } catch { notify('That wallpaper could not be loaded. Try another image.') } }
-  const clearBackground = () => setBackgroundImage('')
+  const handleBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file || !file.type.startsWith('image/')) { if (file) notify('Please choose a PNG, JPG, or WEBP image.'); return } try { const reader = new FileReader(); reader.onload = () => setBackgroundImage(String(reader.result)); reader.onerror = () => notify('That wallpaper could not be loaded. Try another image.'); reader.readAsDataURL(file) } catch { notify('That wallpaper could not be loaded. Try another image.') } }
+  const clearBackground = () => { setBackgroundImage(''); removeWallpaper().catch(() => undefined) }
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t) }, [])
   useEffect(() => { if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => undefined) }, [])
 
