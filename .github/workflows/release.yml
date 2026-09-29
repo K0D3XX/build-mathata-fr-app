@@ -1,0 +1,47 @@
+name: Release Desktop App
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers the cloud build automatically whenever you tag a release (like v1.0.1)
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest' # Builds your Mac .dmg installer
+            args: '--target universal'
+          - platform: 'windows-latest' # Builds your Windows .exe installer
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install app dependencies
+        run: npm install
+
+      - name: Build and package app via Tauri
+        uses: tauri-apps/tauri-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Mathata Desktop ${{ github.ref_name }}'
+          releaseBody: 'Automated native desktop release compiled securely in the cloud.'
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
