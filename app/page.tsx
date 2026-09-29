@@ -56,6 +56,8 @@ export default function Page() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pomodoroSeconds, setPomodoroSeconds] = useState(0)
   const [pomodoroRunning, setPomodoroRunning] = useState(false)
+  const [toast, setToast] = useState('')
+  const toastTimer = useRef<number | null>(null)
   const pomodoroStarted = pomodoroSeconds > 0 || pomodoroRunning
 
   useEffect(() => { try { const saved = JSON.parse(localStorage.getItem('mathata-fr') || '{}'); if (saved.blocks) setBlocks(saved.blocks); if (saved.deadlines) setDeadlines(saved.deadlines); if (saved.theme) setTheme(saved.theme); if (saved.backgroundImage) setBackgroundImage(saved.backgroundImage) } catch { setBlocks(DEFAULT_BLOCKS) } }, [])
@@ -68,19 +70,20 @@ export default function Page() {
     return () => { window.removeEventListener('beforeinstallprompt', onBeforeInstall); window.removeEventListener('appinstalled', onInstalled) }
   }, [])
   const installApp = async () => {
-    if (!installPrompt) { alert('To install Mathata, use your browser menu and choose “Add to Home screen” or “Install Mathata”.'); return }
+    if (!installPrompt) { notify('Use your browser menu to choose “Add to Home screen” or “Install Mathata”.'); return }
     await installPrompt.prompt()
     const choice = await installPrompt.userChoice
     if (choice.outcome === 'accepted') setInstalled(true)
     setInstallPrompt(null)
   }
-  useEffect(() => { localStorage.setItem('mathata-fr', JSON.stringify({ blocks, deadlines, theme, backgroundImage, transparency })) }, [blocks, deadlines, theme, backgroundImage, transparency])
+  useEffect(() => { try { localStorage.setItem('mathata-fr', JSON.stringify({ blocks, deadlines, theme, backgroundImage, transparency })) } catch { setToast('Your wallpaper is active for this session; it was too large to save on this device.') } }, [blocks, deadlines, theme, backgroundImage, transparency])
+  const notify = (message: string) => { setToast(message); if (toastTimer.current) window.clearTimeout(toastTimer.current); toastTimer.current = window.setTimeout(() => setToast(''), 4200) }
   useEffect(() => { try { const saved = JSON.parse(localStorage.getItem('mathata-fr') || '{}'); if (typeof saved.transparency === 'number') setTransparency(saved.transparency) } catch {} }, [])
   useEffect(() => { if (!pomodoroRunning) return; const timer = window.setInterval(() => setPomodoroSeconds(value => { if (value <= 1) { setPomodoroRunning(false); return 0 } return value - 1 }), 1000); return () => window.clearInterval(timer) }, [pomodoroRunning])
   const startPomodoro = (hours = pomodoroHours) => { setPomodoroHours(hours); setPomodoroSeconds(hours * 60 * 60); setPomodoroRunning(true) }
-  const pausePomodoro = () => { if (pomodoroRunning) alert(pomodoroSeconds > 15 * 60 ? 'Bruhh ur kidding right' : 'Come on, you\'re almost there bud'); setPomodoroRunning(false) }
+  const pausePomodoro = () => { if (pomodoroRunning) notify(pomodoroSeconds > 15 * 60 ? 'Bruhh ur kidding right' : 'Come on, you\'re almost there bud'); setPomodoroRunning(false) }
   const resetPomodoro = () => { setPomodoroRunning(false); setPomodoroSeconds(0) }
-  const handleBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file || !file.type.startsWith('image/')) return; const reader = new FileReader(); reader.onload = () => setBackgroundImage(String(reader.result)); reader.readAsDataURL(file); event.target.value = '' }
+  const handleBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file || !file.type.startsWith('image/')) { if (file) notify('Please choose a PNG, JPG, or WEBP image.'); return } if (file.size > 8 * 1024 * 1024) { notify('That image is too large. Choose one under 8 MB.'); return } try { const reader = new FileReader(); reader.onload = () => setBackgroundImage(String(reader.result)); reader.onerror = () => notify('That wallpaper could not be loaded. Try another image.'); reader.readAsDataURL(file) } catch { notify('That wallpaper could not be loaded. Try another image.') } }
   const clearBackground = () => setBackgroundImage('')
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t) }, [])
   useEffect(() => { if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => undefined) }, [])
@@ -107,6 +110,7 @@ export default function Page() {
     </div>
     <nav className="bottom-tabs"><NavItem active={view === 'exam'} onClick={() => setView('exam')} icon={<GraduationCap size={18} />} label="Exam" /><NavItem active={view === 'week'} onClick={() => setView('week')} icon={<CalendarDays size={18} />} label="Week" /><NavItem active={view === 'day'} onClick={() => setView('day')} icon={<Clock3 size={18} />} label="Day" /><NavItem active={view === 'deadlines'} onClick={() => setView('deadlines')} icon={<Target size={18} />} label="Deadlines" /><NavItem active={view === 'modules'} onClick={() => setView('modules')} icon={<MoreHorizontal size={18} />} label="Modules" /></nav>
     {modal !== undefined && <Editor value={modal} onClose={() => setModal(undefined)} onSave={saveBlock} onDelete={deleteBlock} blocks={blocks} />}
+    {toast && <div className="toast" role="status" aria-live="polite"><span className="toast-dot" />{toast}<button aria-label="Dismiss message" onClick={() => setToast('')}><X size={15} /></button></div>}
   </div>
 }
 
