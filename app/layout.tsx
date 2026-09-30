@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Mathata · Desktop study planner',
-  description: 'Download Mathata, a playful desktop planner for turning study goals into small, doable wins.',
+  title: 'Mathata FR · Study timetable',
+  description: 'A calm, practical study timetable for university life in Botswana.',
   generator: 'v0.app',
   applicationName: 'Mathata FR',
   manifest: '/manifest.webmanifest',
