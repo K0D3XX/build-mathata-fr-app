@@ -3,7 +3,7 @@ name: Release Desktop App
 on:
   push:
     tags:
-      - 'v*' # Triggers the cloud build automatically whenever you tag a release (like v1.0.1)
+      - 'v*'
 
 jobs:
   release:
@@ -13,9 +13,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest' # Builds your Mac .dmg installer
+          - platform: 'macos-latest'
             args: '--target universal'
-          - platform: 'windows-latest' # Builds your Windows .exe installer
+          - platform: 'windows-latest'
             args: ''
 
     runs-on: ${{ matrix.platform }}
@@ -30,6 +30,8 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install app dependencies
         run: npm install

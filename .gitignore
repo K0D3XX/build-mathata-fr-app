@@ -15,3 +15,6 @@ node_modules
 .DS_Store
 out/
 src-tauri/target/
+
+out/
+src-tauri/target/
